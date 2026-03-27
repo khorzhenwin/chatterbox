@@ -12,7 +12,7 @@ make install
 
 Place one or more `.txt` files inside `data/`.
 
-Each generated audio file has a hard input limit of `1000` tokens. Keep every `.txt` file at or under that limit, and split longer scripts into multiple files before running generation.
+Each generated audio file has a hard input limit of `800` tokens. Keep every `.txt` file at or under that limit, and split longer scripts into multiple files before running generation.
 
 Example:
 
