@@ -78,9 +78,11 @@ def resolve_text_files(
             ) from exc
 
         if text_file.suffix.lower() != ".txt":
-            raise ValueError(f"Selected file must be a .txt file: {selected_file}")
+            raise ValueError(
+                f"Selected file must be a .txt file: {selected_file}")
         if not text_file.exists() or not text_file.is_file():
-            raise FileNotFoundError(f"Selected file not found: {selected_file}")
+            raise FileNotFoundError(
+                f"Selected file not found: {selected_file}")
 
         if text_file not in resolved_files:
             resolved_files.append(text_file)
@@ -121,9 +123,10 @@ def main() -> None:
 
         print(f"Generating audio for {relative_path}...")
         if audio_prompt:
-            wav = model.generate(text, audio_prompt_path=str(audio_prompt))
+            wav = model.generate(text, audio_prompt_path=str(
+                audio_prompt), cfg_weight=0.6)
         else:
-            wav = model.generate(text)
+            wav = model.generate(text, cfg_weight=0.6)
 
         if wav.dim() == 1:
             wav = wav.unsqueeze(0)
