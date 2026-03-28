@@ -1,0 +1,14 @@
+services:
+  fish-server:
+    image: ${FISH_DOCKER_IMAGE:-fishaudio/fish-speech:server-cpu}
+    ports:
+      - "${FISH_API_PORT:-8080}:8080"
+    environment:
+      API_SERVER_NAME: 0.0.0.0
+      API_SERVER_PORT: 8080
+      LLAMA_CHECKPOINT_PATH: ${FISH_LLAMA_CHECKPOINT_PATH:-/app/checkpoints/s2-pro}
+      DECODER_CHECKPOINT_PATH: ${FISH_DECODER_CHECKPOINT_PATH:-/app/checkpoints/s2-pro/codec.pth}
+      COMPILE: ${FISH_COMPILE:-0}
+    volumes:
+      - ${FISH_CHECKPOINT_DIR:-./fish-checkpoints}:/app/checkpoints
+      - ${FISH_REFERENCE_DIR:-./fish-references}:/app/references

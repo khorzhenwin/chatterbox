@@ -1,3 +1,6 @@
 chatterbox-tts
+ormsgpack
+python-dotenv
+requests
 torch
 torchaudio
