@@ -1,0 +1,22 @@
+services:
+  fish-server:
+    image: ${FISH_DOCKER_IMAGE:-fishaudio/fish-speech:v1.5.1}
+    platform: ${FISH_DOCKER_PLATFORM:-linux/amd64}
+    command:
+      - python
+      - tools/api_server.py
+      - --device
+      - ${FISH_SERVER_DEVICE:-cpu}
+      - --listen
+      - 0.0.0.0:8080
+      - --llama-checkpoint-path
+      - ${FISH_LLAMA_CHECKPOINT_PATH:-checkpoints/fish-speech-1.5}
+      - --decoder-checkpoint-path
+      - ${FISH_DECODER_CHECKPOINT_PATH:-checkpoints/fish-speech-1.5/firefly-gan-vq-fsq-8x1024-21hz-generator.pth}
+      - --decoder-config-name
+      - ${FISH_DECODER_CONFIG_NAME:-firefly_gan_vq}
+    ports:
+      - "${FISH_API_PORT:-8080}:8080"
+    volumes:
+      - ${FISH_CHECKPOINT_DIR:-./fish-checkpoints}:/opt/fish-speech/checkpoints
+      - ${FISH_REFERENCE_DIR:-./fish-references}:/opt/fish-speech/references

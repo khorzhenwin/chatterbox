@@ -1,6 +1,9 @@
-# Chatterbox Text-to-Audio
+# Text-to-Audio Comparison
 
-This project reads every `.txt` file in the `data/` folder and generates a matching `.wav` file with the [ResembleAI Chatterbox model](https://huggingface.co/ResembleAI/chatterbox).
+This project reads every `.txt` file in the `data/` folder and generates matching `.wav` files with either:
+
+- the [ResembleAI Chatterbox model](https://huggingface.co/ResembleAI/chatterbox)
+- the [Fish Audio Fish Speech 1.5 model](https://huggingface.co/fishaudio/fish-speech-1.5) via a self-hosted Fish Speech server
 
 ## Setup
 
@@ -29,26 +32,48 @@ data/
 make run
 ```
 
+That defaults to the Chatterbox script and writes files into `output/chatterbox/`.
+
+To run Chatterbox explicitly:
+
+```bash
+make run chatterbox
+```
+
+To run Fish Audio:
+
+```bash
+make run fish
+```
+
+That now auto-starts a local Dockerized Fish Speech server from this repo when `FISH_SERVER_MODE=docker` in `.env`. By default it targets `http://127.0.0.1:8080/v1/tts`.
+
 To run a specific file under `data/`:
 
 ```bash
-make run FILE=intro.txt
+make run chatterbox FILE=intro.txt
 ```
 
 The script will:
 
 - scan `data/` for `.txt` files
-- load the Chatterbox model
+- load the selected engine
 - generate one `.wav` file per input text file
-- write the audio files into `output/`, preserving subfolders
+- write the audio files into `output/`, preserving subfolders under the engine name
+- print simple timing stats so you can compare generation speed
 
 Example output:
 
 ```text
 output/
-  intro.wav
-  scenes/
-    scene-1.wav
+  chatterbox/
+    intro.wav
+    scenes/
+      scene-1.wav
+  fish-audio/
+    intro.wav
+    scenes/
+      scene-1.wav
 ```
 
 ## Optional voice prompt
@@ -56,16 +81,48 @@ output/
 If you want to clone the voice from a reference clip, pass an audio file:
 
 ```bash
-make run AUDIO_PROMPT=path/to/reference.wav
+make run chatterbox AUDIO_PROMPT=path/to/reference.wav
 ```
 
 You can combine both:
 
 ```bash
-make run FILE=scenes/scene-1.txt AUDIO_PROMPT=path/to/reference.wav
+make run fish FILE=scenes/scene-1.txt AUDIO_PROMPT=path/to/reference.wav
 ```
+
+For Fish Audio, put the model weights under `fish-checkpoints/fish-speech-1.5/` first, then run:
+
+```bash
+make run fish
+```
+
+One simple way to place them there is:
+
+```bash
+make fish-download
+```
+
+The project will run `docker compose up -d fish-server`, wait for `/v1/health`, and then call the local server.
+
+For `fish-speech-1.5`, this repo uses the legacy `fishaudio/fish-speech:v1.5.1` image rather than the newer `server-cpu` image, because the newer image family is not backward-compatible with the 1.5 checkpoint layout.
+
+Useful server commands:
+
+```bash
+make fish-server-up
+make fish-server-logs
+make fish-server-down
+make fish-download
+```
+
+By default the script calls `http://127.0.0.1:8080/v1/tts`.
+
+If you pass `AUDIO_PROMPT` to Fish Audio, also create a transcript text file next to it using either the same stem or the full filename plus `.txt`. For example, `reference.wav` can use `reference.txt` or `reference.wav.txt`.
 
 ## Notes
 
 - The first run will download the model from Hugging Face.
-- The script automatically uses `cuda`, then `mps`, then `cpu`, depending on what is available.
+- Chatterbox automatically uses `cuda`, then `mps`, then `cpu`, depending on what is available.
+- Fish Audio local serving in this repo uses the official `fishaudio/fish-speech:v1.5.1` Docker image.
+- The local defaults are tuned for `fish-speech-1.5`, which is a more practical self-hosted target than `s2-pro`.
+- On Apple Silicon, the Docker image runs under `linux/amd64` emulation by default, so startup is slow and the warm-up phase can take around a minute before `/v1/health` returns `200`.
