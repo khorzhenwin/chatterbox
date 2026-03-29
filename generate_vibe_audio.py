@@ -4,4 +4,4 @@ from run_generation import main
 
 
 if __name__ == "__main__":
-    main(default_engine="fish")
+    main(default_engine="vibe")

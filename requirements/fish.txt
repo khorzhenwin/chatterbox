@@ -1,0 +1,2 @@
+ormsgpack
+requests

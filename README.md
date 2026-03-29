@@ -1,9 +1,12 @@
-# Text-to-Audio Comparison
+# Text-to-Audio Engines
 
-This project reads every `.txt` file in the `data/` folder and generates matching `.wav` files with either:
+This project reads `.txt` files from `data/` and generates matching `.wav` files through a shared engine runner. The repo currently supports:
 
-- the [ResembleAI Chatterbox model](https://huggingface.co/ResembleAI/chatterbox)
-- the [Fish Audio Fish Speech 1.5 model](https://huggingface.co/fishaudio/fish-speech-1.5) via a self-hosted Fish Speech server
+- [ResembleAI Chatterbox](https://huggingface.co/ResembleAI/chatterbox)
+- [Fish Speech 1.5](https://huggingface.co/fishaudio/fish-speech-1.5) through a self-hosted Fish server
+- [Microsoft VibeVoice-1.5B](https://huggingface.co/microsoft/VibeVoice-1.5B)
+
+The Python side is now engine-based, so new models can plug into the same CLI and `Makefile` flow instead of adding one-off scripts.
 
 ## Setup
 
@@ -11,11 +14,13 @@ This project reads every `.txt` file in the `data/` folder and generates matchin
 make install
 ```
 
-## Add text files
+Each engine installs into its own virtualenv under `.venvs/` so model-specific dependency stacks can evolve independently.
 
-Place one or more `.txt` files inside `data/`.
+## Add Text Files
 
-Each generated audio file has a hard input limit of `800` tokens. Keep every `.txt` file at or under that limit, and split longer scripts into multiple files before running generation.
+Place one or more `.txt` files under `data/`.
+
+Each generated audio file should stay at or under the project's hard `800`-token limit. Split longer scripts into multiple files before running generation.
 
 Example:
 
@@ -26,41 +31,39 @@ data/
     scene-1.txt
 ```
 
-## Run
+## Run An Engine
 
 ```bash
 make run
 ```
 
-That defaults to the Chatterbox script and writes files into `output/chatterbox/`.
+That defaults to Chatterbox and writes audio into `output/chatterbox/`.
 
-To run Chatterbox explicitly:
+Explicit engines:
 
 ```bash
+make install chatterbox
+make install fish
+make install vibe
+
 make run chatterbox
-```
-
-To run Fish Audio:
-
-```bash
 make run fish
+make run vibe
 ```
 
-That now auto-starts a local Dockerized Fish Speech server from this repo when `FISH_SERVER_MODE=docker` in `.env`. By default it targets `http://127.0.0.1:8080/v1/tts`.
-
-To run a specific file under `data/`:
+Run a specific file:
 
 ```bash
-make run chatterbox FILE=intro.txt
+make run vibe FILE=intro.txt
 ```
 
-The script will:
+All engines share the same runner behavior:
 
 - scan `data/` for `.txt` files
 - load the selected engine
 - generate one `.wav` file per input text file
-- write the audio files into `output/`, preserving subfolders under the engine name
-- print simple timing stats so you can compare generation speed
+- preserve subfolders under `output/<engine>/`
+- print simple timing stats for each run
 
 Example output:
 
@@ -68,45 +71,65 @@ Example output:
 output/
   chatterbox/
     intro.wav
-    scenes/
-      scene-1.wav
   fish-audio/
     intro.wav
-    scenes/
-      scene-1.wav
+  vibe-voice/
+    intro.wav
 ```
 
-## Optional voice prompt
+## Voice Prompts
 
-If you want to clone the voice from a reference clip, pass an audio file:
+Single-speaker engines can use `AUDIO_PROMPT`:
 
 ```bash
 make run chatterbox AUDIO_PROMPT=path/to/reference.wav
+make run fish AUDIO_PROMPT=path/to/reference.wav
 ```
 
-You can combine both:
+VibeVoice supports either plain single-speaker text or multi-speaker scripts.
+
+Single-speaker VibeVoice:
 
 ```bash
-make run fish FILE=scenes/scene-1.txt AUDIO_PROMPT=path/to/reference.wav
+make run vibe AUDIO_PROMPT=vibe-voice/voices/host.wav
 ```
 
-For Fish Audio, put the model weights under `fish-checkpoints/fish-speech-1.5/` first, then run:
+Multi-speaker VibeVoice:
+
+```text
+Speaker 1: Welcome back to the show.
+Speaker 2: Thanks for having me.
+Speaker 1: Let's get started.
+```
+
+Provide one voice sample per speaker in order:
 
 ```bash
-make run fish
+make run vibe VIBE_VOICE_SAMPLES=vibe-voice/voices/host.wav,vibe-voice/voices/guest.wav
 ```
 
-One simple way to place them there is:
+If you want to skip voice cloning and let VibeVoice run without speech prefill:
+
+```bash
+make run vibe VIBE_DISABLE_PREFILL=1
+```
+
+## Fish Speech
+
+Fish uses a local API server. When `FISH_SERVER_MODE=docker`, `make run fish` will:
+
+1. check that the local checkpoints exist
+2. run `docker compose up -d fish-server`
+3. wait for `/v1/health`
+4. generate audio through `http://127.0.0.1:8080/v1/tts`
+
+Download checkpoints into `fish-checkpoints/` with:
 
 ```bash
 make fish-download
 ```
 
-The project will run `docker compose up -d fish-server`, wait for `/v1/health`, and then call the local server.
-
-For `fish-speech-1.5`, this repo uses the legacy `fishaudio/fish-speech:v1.5.1` image rather than the newer `server-cpu` image, because the newer image family is not backward-compatible with the 1.5 checkpoint layout.
-
-Useful server commands:
+Useful Fish commands:
 
 ```bash
 make fish-server-up
@@ -115,14 +138,32 @@ make fish-server-down
 make fish-download
 ```
 
-By default the script calls `http://127.0.0.1:8080/v1/tts`.
+If you pass `AUDIO_PROMPT` to Fish, also create a transcript file next to it using either the same stem or the full filename plus `.txt`. For example, `reference.wav` can use `reference.txt` or `reference.wav.txt`.
 
-If you pass `AUDIO_PROMPT` to Fish Audio, also create a transcript text file next to it using either the same stem or the full filename plus `.txt`. For example, `reference.wav` can use `reference.txt` or `reference.wav.txt`.
+## VibeVoice
+
+This repo defaults to the official `microsoft/VibeVoice-1.5B` weights, but it uses the community-maintained `vibevoice` Python runtime because Microsoft removed the original TTS code from the public repo after release. The runtime remains compatible with the published model weights.
+
+Project-local VibeVoice assets live under `vibe-voice/`:
+
+- `vibe-voice/models/` for optional downloaded weights
+- `vibe-voice/voices/` for optional speaker reference clips
+
+To pre-download the official model into the repo instead of relying on the Hugging Face cache:
+
+```bash
+make vibe-download
+```
+
+If `vibe-voice/models/VibeVoice-1.5B/` exists, `make run vibe` will use it automatically. Otherwise it falls back to the Hugging Face repo ID.
+
+## Environment
+
+Copy `.env.example` to `.env` if you want persistent defaults for engine settings, model paths, or prompts.
 
 ## Notes
 
-- The first run will download the model from Hugging Face.
-- Chatterbox automatically uses `cuda`, then `mps`, then `cpu`, depending on what is available.
-- Fish Audio local serving in this repo uses the official `fishaudio/fish-speech:v1.5.1` Docker image.
-- The local defaults are tuned for `fish-speech-1.5`, which is a more practical self-hosted target than `s2-pro`.
-- On Apple Silicon, the Docker image runs under `linux/amd64` emulation by default, so startup is slow and the warm-up phase can take around a minute before `/v1/health` returns `200`.
+- Chatterbox automatically uses `cuda`, then `mps`, then `cpu`, unless you override the device.
+- Fish local serving in this repo uses the official `fishaudio/fish-speech:v1.5.1` image.
+- VibeVoice is optimized for long-form conversational speech and works best when multi-speaker scripts are labeled as `Speaker N:`.
+- The VibeVoice model card notes that the public 1.5B release is intended for research usage and supports English and Chinese best: [model card](https://huggingface.co/microsoft/VibeVoice-1.5B).

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 
@@ -9,12 +10,14 @@ DEFAULT_DATA_DIR = PROJECT_ROOT / "data"
 OUTPUT_ROOT_DIR = PROJECT_ROOT / "output"
 CHATTERBOX_OUTPUT_DIR = OUTPUT_ROOT_DIR / "chatterbox"
 FISH_AUDIO_OUTPUT_DIR = OUTPUT_ROOT_DIR / "fish-audio"
+VIBE_VOICE_OUTPUT_DIR = OUTPUT_ROOT_DIR / "vibe-voice"
 
 
 def add_shared_arguments(
     parser: argparse.ArgumentParser,
     *,
     default_output_dir: Path,
+    default_audio_prompt: Path | None = None,
 ) -> argparse.ArgumentParser:
     parser.add_argument(
         "--data-dir",
@@ -31,7 +34,7 @@ def add_shared_arguments(
     parser.add_argument(
         "--audio-prompt",
         type=Path,
-        default=None,
+        default=default_audio_prompt,
         help="Optional reference speaker audio file for voice cloning.",
     )
     parser.add_argument(
@@ -111,3 +114,43 @@ def format_real_time_factor(elapsed_seconds: float, audio_seconds: float) -> str
     if audio_seconds <= 0:
         return "n/a"
     return f"{elapsed_seconds / audio_seconds:.3f}"
+
+
+def resolve_device(preferred_device: str | None = None) -> str:
+    import torch
+
+    if preferred_device:
+        return preferred_device
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def env_path(*names: str) -> Path | None:
+    for name in names:
+        raw_value = os.getenv(name)
+        if raw_value:
+            return Path(raw_value)
+    return None
+
+
+def env_int(name: str) -> int | None:
+    raw_value = os.getenv(name)
+    if raw_value in (None, ""):
+        return None
+    return int(raw_value)
+
+
+def env_truthy(name: str, *, default: bool = False) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def split_csv_values(raw_value: str | None) -> list[str]:
+    if not raw_value:
+        return []
+    return [item.strip() for item in raw_value.split(",") if item.strip()]

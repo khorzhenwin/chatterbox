@@ -1,7 +1,12 @@
 .venv/
+.venvs/
 __pycache__/
 .pycache/
+.pycache-verify/
 .env
 fish-checkpoints/
 fish-references/
+vibe-voice/models/
+vibe-voice/voices/*
+!vibe-voice/voices/.gitkeep
 output/

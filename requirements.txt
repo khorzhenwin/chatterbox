@@ -1,6 +1,10 @@
-chatterbox-tts
-ormsgpack
-python-dotenv
-requests
-torch
-torchaudio
+# Use the shared runner through `make` so each engine installs into its own
+# virtualenv. This avoids dependency conflicts between model runtimes.
+#
+# Examples:
+#   make install
+#   make install fish
+#   make install vibe
+#
+# Shared dependencies live under `requirements/common.txt`.
+-r requirements/common.txt
