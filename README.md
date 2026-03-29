@@ -3,7 +3,7 @@
 This project reads every `.txt` file in the `data/` folder and generates matching `.wav` files with either:
 
 - the [ResembleAI Chatterbox model](https://huggingface.co/ResembleAI/chatterbox)
-- the [Fish Audio S2 Pro model family](https://huggingface.co/fishaudio/s2-pro) via a self-hosted Fish Speech server
+- the [Fish Audio Fish Speech 1.5 model](https://huggingface.co/fishaudio/fish-speech-1.5) via a self-hosted Fish Speech server
 
 ## Setup
 
@@ -90,7 +90,7 @@ You can combine both:
 make run fish FILE=scenes/scene-1.txt AUDIO_PROMPT=path/to/reference.wav
 ```
 
-For Fish Audio, put the model weights under `fish-checkpoints/s2-pro/` first, then run:
+For Fish Audio, put the model weights under `fish-checkpoints/fish-speech-1.5/` first, then run:
 
 ```bash
 make run fish
@@ -99,10 +99,12 @@ make run fish
 One simple way to place them there is:
 
 ```bash
-hf download fishaudio/s2-pro --local-dir fish-checkpoints/s2-pro
+make fish-download
 ```
 
 The project will run `docker compose up -d fish-server`, wait for `/v1/health`, and then call the local server.
+
+For `fish-speech-1.5`, this repo uses the legacy `fishaudio/fish-speech:v1.5.1` image rather than the newer `server-cpu` image, because the newer image family is not backward-compatible with the 1.5 checkpoint layout.
 
 Useful server commands:
 
@@ -110,6 +112,7 @@ Useful server commands:
 make fish-server-up
 make fish-server-logs
 make fish-server-down
+make fish-download
 ```
 
 By default the script calls `http://127.0.0.1:8080/v1/tts`.
@@ -120,5 +123,6 @@ If you pass `AUDIO_PROMPT` to Fish Audio, also create a transcript text file nex
 
 - The first run will download the model from Hugging Face.
 - Chatterbox automatically uses `cuda`, then `mps`, then `cpu`, depending on what is available.
-- Fish Audio local serving in this repo uses the official `fishaudio/fish-speech` Docker image.
-- The default Docker image is CPU-only for compatibility. It is convenient for wiring things up, but real performance will usually require a Linux GPU host. If you have one, switch `FISH_DOCKER_IMAGE` to `fishaudio/fish-speech:server-cuda`.
+- Fish Audio local serving in this repo uses the official `fishaudio/fish-speech:v1.5.1` Docker image.
+- The local defaults are tuned for `fish-speech-1.5`, which is a more practical self-hosted target than `s2-pro`.
+- On Apple Silicon, the Docker image runs under `linux/amd64` emulation by default, so startup is slow and the warm-up phase can take around a minute before `/v1/health` returns `200`.

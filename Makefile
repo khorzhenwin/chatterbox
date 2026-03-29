@@ -1,4 +1,5 @@
 -include .env
+export HF_TOKEN
 
 PYTHON ?= python3
 VENV ?= .venv
@@ -8,6 +9,9 @@ DOCKER_COMPOSE ?= docker compose
 SELECTED_ENGINES := $(filter chatterbox fish,$(MAKECMDGOALS))
 FISH_SERVER_MODE ?= docker
 FISH_HEALTH_URL ?= $(patsubst %/v1/tts,%/v1/health,$(FISH_SERVER_URL))
+FISH_MODEL_SUBDIR ?= fish-speech-1.5
+FISH_MODEL_PATH := $(FISH_CHECKPOINT_DIR)/$(FISH_MODEL_SUBDIR)
+FISH_DECODER_FILENAME ?= firefly-gan-vq-fsq-8x1024-21hz-generator.pth
 
 ifeq ($(words $(SELECTED_ENGINES)),0)
 ENGINE := chatterbox
@@ -28,7 +32,7 @@ RUN_DEPS += fish-checkpoints-check fish-server-up fish-server-wait
 endif
 endif
 
-.PHONY: install run chatterbox fish fish-checkpoints-check fish-server-up fish-server-down fish-server-logs fish-server-wait
+.PHONY: install run chatterbox fish fish-download fish-checkpoints-check fish-server-up fish-server-down fish-server-logs fish-server-wait
 
 $(VENV_PYTHON):
 	$(PYTHON) -m venv $(VENV)
@@ -42,19 +46,24 @@ run: $(RUN_DEPS)
 chatterbox fish:
 	@:
 
+fish-download:
+	@sh -c 'test -n "$$HF_TOKEN" || { echo "Missing HF_TOKEN in .env or shell environment." >&2; exit 1; }'
+	@mkdir -p "$(FISH_CHECKPOINT_DIR)"
+	hf download "$(FISH_HF_MODEL)" --local-dir "$(FISH_MODEL_PATH)"
+
 fish-checkpoints-check:
-	@test -d "$(FISH_CHECKPOINT_DIR)/s2-pro" || ( \
-		echo "Missing Fish checkpoint directory: $(FISH_CHECKPOINT_DIR)/s2-pro" >&2; \
-		echo "Download model weights into that folder before running Fish." >&2; \
+	@test -d "$(FISH_MODEL_PATH)" || ( \
+		echo "Missing Fish checkpoint directory: $(FISH_MODEL_PATH)" >&2; \
+		echo "Run \`make fish-download\` to download model weights into that folder." >&2; \
 		exit 1 \
 	)
-	@test -f "$(FISH_CHECKPOINT_DIR)/s2-pro/codec.pth" || ( \
-		echo "Missing Fish decoder checkpoint: $(FISH_CHECKPOINT_DIR)/s2-pro/codec.pth" >&2; \
-		echo "Expected S2 Pro weights under $(FISH_CHECKPOINT_DIR)/s2-pro." >&2; \
+	@test -f "$(FISH_MODEL_PATH)/$(FISH_DECODER_FILENAME)" || ( \
+		echo "Missing Fish decoder checkpoint: $(FISH_MODEL_PATH)/$(FISH_DECODER_FILENAME)" >&2; \
+		echo "Expected Fish weights under $(FISH_MODEL_PATH)." >&2; \
 		exit 1 \
 	)
-	@test -n "$$(ls -A "$(FISH_CHECKPOINT_DIR)/s2-pro" 2>/dev/null)" || ( \
-		echo "Fish checkpoint directory is empty: $(FISH_CHECKPOINT_DIR)/s2-pro" >&2; \
+	@test -n "$$(ls -A "$(FISH_MODEL_PATH)" 2>/dev/null)" || ( \
+		echo "Fish checkpoint directory is empty: $(FISH_MODEL_PATH)" >&2; \
 		exit 1 \
 	)
 
